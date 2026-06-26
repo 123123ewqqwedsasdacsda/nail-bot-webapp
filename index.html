@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Расписание</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #222);
+  padding-bottom: 100px;
+  min-height: 100vh;
+}
+
+.header {
+  padding: 24px 20px 16px;
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.header h1 { font-size: 19px; font-weight: 700; }
+.header p  { font-size: 13px; color: var(--tg-theme-hint-color, #999); margin-top: 4px; }
+
+/* Card */
+.card {
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  margin: 0 0 8px;
+  padding: 16px 20px;
+}
+.card-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--tg-theme-hint-color, #999);
+  margin-bottom: 14px;
+}
+
+/* Work-hours two-value display */
+.hours-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.time-pill {
+  flex: 1;
+  text-align: center;
+  background: var(--tg-theme-button-color, #2481cc);
+  color: var(--tg-theme-button-text-color, #fff);
+  border-radius: 12px;
+  padding: 10px 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.arrow { color: var(--tg-theme-hint-color, #999); font-size: 18px; }
+
+/* Single value row */
+.val-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.val-name { font-size: 15px; font-weight: 500; }
+.val-num  {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tg-theme-button-color, #2481cc);
+}
+
+/* Range slider */
+.range-wrap { position: relative; height: 36px; display: flex; align-items: center; }
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%; height: 4px;
+  background: var(--tg-theme-hint-color, #ccc);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--tg-theme-button-color, #2481cc);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+  cursor: pointer;
+}
+.range-fill {
+  position: absolute;
+  left: 0; top: 50%;
+  height: 4px;
+  background: var(--tg-theme-button-color, #2481cc);
+  border-radius: 2px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.divider { height: 1px; background: rgba(0,0,0,0.07); margin: 14px 0; }
+
+/* Preview */
+.preview-card {
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  padding: 16px 20px;
+  margin-bottom: 8px;
+}
+.preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.preview-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--tg-theme-hint-color, #999);
+}
+.preview-badge {
+  background: rgba(36,129,204,0.12);
+  color: var(--tg-theme-button-color, #2481cc);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.slots-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.slot-chip {
+  background: rgba(36,129,204,0.10);
+  color: var(--tg-theme-button-color, #2481cc);
+  border-radius: 10px;
+  padding: 8px 13px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.slot-end { font-size: 11px; font-weight: 400; opacity: 0.65; }
+.no-slots { font-size: 13px; color: var(--tg-theme-hint-color,#999); padding: 8px 0; }
+
+/* Save button fixed at bottom */
+.save-outer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 20px max(12px, env(safe-area-inset-bottom));
+  background: var(--tg-theme-bg-color, #fff);
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+.save-btn {
+  width: 100%;
+  padding: 15px;
+  background: var(--tg-theme-button-color, #2481cc);
+  color: var(--tg-theme-button-text-color, #fff);
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity .15s;
+}
+.save-btn:active { opacity: .8; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💅 Расписание мастера</h1>
+  <p>Настройте рабочее время и длительность окошек</p>
+</div>
+
+<!-- Work hours -->
+<div class="card">
+  <div class="card-label">Рабочие часы</div>
+  <div class="hours-row">
+    <div class="time-pill" id="start-pill">9:00</div>
+    <div class="arrow">→</div>
+    <div class="time-pill" id="end-pill">19:00</div>
+  </div>
+
+  <div class="val-row">
+    <span class="val-name">Начало работы</span>
+    <span class="val-num" id="start-num">9:00</span>
+  </div>
+  <div class="range-wrap">
+    <div class="range-fill" id="start-fill"></div>
+    <input type="range" id="start-sl" min="300" max="780" value="540" step="30">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="val-row">
+    <span class="val-name">Конец работы</span>
+    <span class="val-num" id="end-num">19:00</span>
+  </div>
+  <div class="range-wrap">
+    <div class="range-fill" id="end-fill"></div>
+    <input type="range" id="end-sl" min="600" max="1380" value="1140" step="30">
+  </div>
+</div>
+
+<!-- Slot duration & break -->
+<div class="card">
+  <div class="card-label">Длительность и перерыв</div>
+
+  <div class="val-row">
+    <span class="val-name">⏱ Длительность окошка</span>
+    <span class="val-num" id="slot-num">60 мин</span>
+  </div>
+  <div class="range-wrap">
+    <div class="range-fill" id="slot-fill"></div>
+    <input type="range" id="slot-sl" min="30" max="180" value="60" step="15">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="val-row">
+    <span class="val-name">☕ Перерыв между окошками</span>
+    <span class="val-num" id="brk-num">нет</span>
+  </div>
+  <div class="range-wrap">
+    <div class="range-fill" id="brk-fill"></div>
+    <input type="range" id="brk-sl" min="0" max="60" value="0" step="5">
+  </div>
+</div>
+
+<!-- Live preview -->
+<div class="preview-card">
+  <div class="preview-head">
+    <span class="preview-label">Окошки в рабочий день</span>
+    <span class="preview-badge" id="slot-count">0 окошек</span>
+  </div>
+  <div class="slots-wrap" id="slots-grid">
+    <span class="no-slots">Загрузка…</span>
+  </div>
+</div>
+
+<div class="save-outer">
+  <button class="save-btn" id="save-btn">Сохранить расписание</button>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const startSl = document.getElementById('start-sl');
+const endSl   = document.getElementById('end-sl');
+const slotSl  = document.getElementById('slot-sl');
+const brkSl   = document.getElementById('brk-sl');
+
+// Load URL params (passed by bot with current settings)
+const p = new URLSearchParams(location.search);
+if (p.get('start')) startSl.value = p.get('start');
+if (p.get('end'))   endSl.value   = p.get('end');
+if (p.get('slot'))  slotSl.value  = p.get('slot');
+if (p.get('brk'))   brkSl.value   = p.get('brk');
+
+function fmt(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h + ':' + String(m).padStart(2, '0');
+}
+
+function plural(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'окошко';
+  if ([2,3,4].includes(n%10) && ![12,13,14].includes(n%100)) return 'окошка';
+  return 'окошек';
+}
+
+function fillPct(sl) {
+  const min = +sl.min, max = +sl.max, val = +sl.value;
+  return ((val - min) / (max - min) * 100).toFixed(1) + '%';
+}
+
+function updateFill(sl, fillEl) {
+  fillEl.style.width = fillPct(sl);
+}
+
+function update() {
+  let start   = +startSl.value;
+  let end     = +endSl.value;
+  const slot  = +slotSl.value;
+  const brk   = +brkSl.value;
+
+  // Guard: end must allow at least 1 slot
+  if (end < start + slot) {
+    end = start + slot;
+    endSl.value = end;
+  }
+
+  // Text labels
+  document.getElementById('start-pill').textContent = fmt(start);
+  document.getElementById('end-pill').textContent   = fmt(end);
+  document.getElementById('start-num').textContent  = fmt(start);
+  document.getElementById('end-num').textContent    = fmt(end);
+  document.getElementById('slot-num').textContent   = slot + ' мин';
+  document.getElementById('brk-num').textContent    = brk === 0 ? 'нет' : brk + ' мин';
+
+  // Slider fill bars
+  updateFill(startSl, document.getElementById('start-fill'));
+  updateFill(endSl,   document.getElementById('end-fill'));
+  updateFill(slotSl,  document.getElementById('slot-fill'));
+  updateFill(brkSl,   document.getElementById('brk-fill'));
+
+  // Generate slots
+  const step = slot + brk;
+  const slots = [];
+  let t = start;
+  while (t + slot <= end) { slots.push(t); t += step; }
+
+  const grid  = document.getElementById('slots-grid');
+  const badge = document.getElementById('slot-count');
+  badge.textContent = slots.length + ' ' + plural(slots.length);
+
+  if (!slots.length) {
+    grid.innerHTML = '<span class="no-slots">Нет окошек — увеличьте рабочее время</span>';
+    return;
+  }
+
+  grid.innerHTML = slots.map(s =>
+    `<div class="slot-chip">${fmt(s)}<br><span class="slot-end">до ${fmt(s + slot)}</span></div>`
+  ).join('');
+}
+
+[startSl, endSl, slotSl, brkSl].forEach(s => s.addEventListener('input', update));
+
+document.getElementById('save-btn').addEventListener('click', () => {
+  const data = {
+    start_min:         +startSl.value,
+    end_min:           +endSl.value,
+    slot_duration_min: +slotSl.value,
+    break_min:         +brkSl.value,
+  };
+  tg.sendData(JSON.stringify(data));
+});
+
+update();
+</script>
+</body>
+</html>
